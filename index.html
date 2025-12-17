@@ -1,0 +1,107 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Data Structure Project Hub</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            background-color: #121212;
+            color: #e0e0e0;
+            margin: 0;
+            padding: 40px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+
+        h1 {
+            font-size: 2.5em;
+            margin-bottom: 40px;
+            color: #ffffff;
+        }
+
+        #portfolio-container {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 25px; /* The space between cards */
+            justify-content: center;
+            max-width: 1200px;
+        }
+
+        .card {
+            background-color: #1e1e1e;
+            border: 1px solid #333;
+            border-radius: 8px;
+            width: 250px;
+            height: 150px;
+            text-decoration: none;
+            color: #e0e0e0;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            transition: transform 0.2s ease-in-out, box-shadow 0.2s ease-in-out;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.2);
+            text-align: center; /* Center text if it wraps */
+            padding: 10px; /* Add some padding */
+        }
+
+        .card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 8px 12px rgba(0, 0, 0, 0.3);
+            border-color: #555;
+        }
+
+        .card h2 {
+            font-size: 1.5em;
+            margin: 0;
+        }
+    </style>
+</head>
+<body>
+
+    <h1>Data Structure - Hub</h1>
+
+    <div id="portfolio-container">
+        </div>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            // --- NEW AND IMPROVED ---
+            // This is now an array of objects.
+            // 'folder' is the actual folder name.
+            // 'title' is what will be displayed on the card.
+            const projects = [
+                { folder: 'work1', title: 'Default Tree' }
+            ];
+			
+			// untuk add link ke folder, masukan dalam array diatas
+			// format : { folder: 'nama folder', title: 'judul/title card'}
+
+            const container = document.getElementById('portfolio-container');
+
+            // Loop through each project object in the list
+            projects.forEach(project => {
+                // 1. Create the link element (the card itself)
+                const cardLink = document.createElement('a');
+                cardLink.className = 'card';
+                // Use project.folder for the link's path
+                cardLink.href = `./${project.folder}/index.html`;
+
+                // 2. Create the title element inside the card
+                const cardTitle = document.createElement('h2');
+                // Use project.title for the display text
+                cardTitle.textContent = project.title;
+
+                // 3. Put the title inside the card link
+                cardLink.appendChild(cardTitle);
+
+                // 4. Add the completed card to the container on the page
+                container.appendChild(cardLink);
+            });
+        });
+    </script>
+
+</body>
+</html>

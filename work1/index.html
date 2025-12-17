@@ -1,0 +1,964 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Tree Data Structure Simulator (Enhanced)</title>
+    <style>
+        :root {
+            --bg-color: #f4f4f9;
+            --panel-bg: #ffffff;
+            --primary: #3498db;
+            --accent: #e74c3c;
+            --text: #2c3e50;
+            --node-size: 50px; /* Sedikit diperbesar untuk muat nickname */
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            margin: 0;
+            padding: 0;
+            height: 100vh;
+            display: flex;
+            background-color: var(--bg-color);
+            color: var(--text);
+            overflow: hidden;
+        }
+
+        /* Layout 80% - 20% */
+        #simulation-container {
+            width: 80%;
+            height: 100%;
+            position: relative;
+            background-color: #eef2f5;
+            overflow: auto;
+            border-right: 2px solid #ddd;
+            display: flex;
+            justify-content: center;
+        }
+
+        #control-panel {
+            width: 20%;
+            height: 100%;
+            background-color: var(--panel-bg);
+            display: flex;
+            flex-direction: column;
+            padding: 20px;
+            box-sizing: border-box;
+            box-shadow: -2px 0 5px rgba(0,0,0,0.05);
+        }
+
+        #svg-layer {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: 1;
+            pointer-events: none;
+        }
+
+        line {
+            stroke: #95a5a6;
+            stroke-width: 2;
+            transition: all 0.5s ease;
+        }
+
+        /* Node Styling Updated for Nickname */
+        .node {
+            width: var(--node-size);
+            height: var(--node-size);
+            background-color: var(--panel-bg);
+            border: 2px solid var(--primary);
+            border-radius: 50%;
+            position: absolute;
+            display: flex;
+            flex-direction: column; /* Stack Value & Nickname */
+            justify-content: center;
+            align-items: center;
+            z-index: 2;
+            cursor: pointer;
+            transition: all 0.5s ease, background-color 0.3s;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+            font-size: 14px;
+            overflow: hidden;
+        }
+
+        .node strong {
+            font-size: 1.1rem;
+            line-height: 1;
+        }
+        
+        .node span.nick {
+            font-size: 0.6rem;
+            color: #555;
+            max-width: 90%;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        .node:hover {
+            background-color: #d6eaf8;
+            transform: scale(1.1);
+            z-index: 10;
+        }
+
+        .node.highlight {
+            background-color: #f1c40f;
+            border-color: #f39c12;
+        }
+
+        .node.found {
+            background-color: #2ecc71;
+            color: white;
+            border-color: #27ae60;
+        }
+        .node.found span.nick { color: #eee; }
+
+        /* Controls Styling */
+        h2 { margin-top: 0; font-size: 1.2rem; }
+        
+        .control-group { margin-bottom: 15px; }
+
+        label { display: block; margin-bottom: 5px; font-weight: 600; font-size: 0.9rem;}
+
+        select, input[type="text"], input[type="number"] {
+            width: 100%;
+            padding: 10px;
+            margin-bottom: 10px;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+            box-sizing: border-box;
+        }
+
+        .button-group {
+            display: flex;
+            gap: 5px;
+            margin-bottom: 10px;
+        }
+
+        button {
+            flex: 1;
+            padding: 10px;
+            border: none;
+            border-radius: 4px;
+            background-color: var(--primary);
+            color: white;
+            cursor: pointer;
+            font-weight: bold;
+            transition: background 0.2s;
+        }
+
+        button:hover { background-color: #2980b9; }
+        button:disabled { background-color: #95a5a6; cursor: not-allowed; }
+
+        button.delete-btn { background-color: var(--accent); }
+        button.delete-btn:hover { background-color: #c0392b; }
+
+        /* Log Area */
+        #log-area {
+            flex: 1;
+            background-color: #f8f9fa;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            padding: 10px;
+            overflow-y: auto;
+            font-family: 'Courier New', Courier, monospace;
+            font-size: 0.85rem;
+        }
+
+        .log-entry {
+            margin-bottom: 5px;
+            border-bottom: 1px solid #eee;
+            padding-bottom: 2px;
+        }
+        /* Context Menu */
+        #context-menu {
+            display: none;
+            position: absolute;
+            background: white;
+            border: 1px solid #ccc;
+            box-shadow: 2px 2px 5px rgba(0,0,0,0.2);
+            z-index: 100;
+            border-radius: 4px;
+            overflow: hidden;
+            min-width: 150px;
+        }
+        #context-menu div {
+            padding: 10px 20px;
+            cursor: pointer;
+            font-size: 0.9rem;
+        }
+        #context-menu div:hover { background-color: #f0f0f0; }
+        #context-menu div.danger { color: red; border-top: 1px solid #eee; }
+
+    </style>
+</head>
+<body>
+
+    <div id="simulation-container">
+        <svg id="svg-layer"></svg>
+        <div id="nodes-layer"></div>
+        <div id="context-menu">
+            <div id="ctx-rename">Rename (Beri Nickname)</div>
+            <div id="ctx-delete" class="danger">Delete Node</div>
+        </div>
+    </div>
+
+    <div id="control-panel">
+        <h2>Tree Controller</h2>
+        
+        <div class="control-group">
+            <label for="tree-type">Tipe Tree:</label>
+            <select id="tree-type">
+                <option value="AVL">AVL Tree</option>
+                <option value="HEAP">Max Heap</option>
+                <option value="SPLAY">Splay Tree</option>
+            </select>
+        </div>
+
+        <div class="control-group">
+            <label for="node-value">Nilai (Integer):</label>
+            <input type="number" id="node-value" placeholder="Masukkan angka..." />
+            
+            <div class="button-group">
+                <button id="btn-insert">Insert</button>
+                <button id="btn-lookup">Lookup</button>
+                <button id="btn-delete" class="delete-btn">Delete</button>
+            </div>
+        </div>
+
+        <label>Activity Log:</label>
+        <div id="log-area">
+            <div class="log-entry">System ready. Default: AVL Tree.</div>
+        </div>
+    </div>
+
+<script>
+/**
+ * UTILITIES
+ */
+const sleep = (ms) => new Promise(resolve => setTimeout(resolve, ms));
+
+const logger = {
+    area: document.getElementById('log-area'),
+    add: function(text) {
+        const div = document.createElement('div');
+        div.className = 'log-entry';
+        div.innerHTML = `> ${text}`;
+        this.area.appendChild(div);
+        this.area.scrollTop = this.area.scrollHeight;
+    },
+    clear: function() {
+        this.area.innerHTML = '';
+    }
+};
+
+// Helper untuk menampilkan nama node di log (Value + Nickname)
+function fmt(node) {
+    if (!node) return "null";
+    if (node.nickname && node.nickname.trim() !== "") {
+        return `${node.value} ("${node.nickname}")`;
+    }
+    return `${node.value}`;
+}
+
+/**
+ * DATA STRUCTURE CLASSES
+ */
+
+class Node {
+    constructor(value) {
+        this.value = value;
+        this.nickname = ""; // Hanya label, tidak mempengaruhi sorting
+        this.left = null;
+        this.right = null;
+        this.height = 1; 
+        
+        // Koordinat visual (disimpan di node untuk kemudahan menggambar)
+        this.x = 0;
+        this.y = 0;
+    }
+}
+
+/**
+ * VISUALIZATION ENGINE
+ */
+class TreeVisualizer {
+    constructor() {
+        this.container = document.getElementById('nodes-layer');
+        this.svgLayer = document.getElementById('svg-layer');
+        this.width = document.getElementById('simulation-container').offsetWidth;
+    }
+
+    reset() {
+        this.container.innerHTML = '';
+        this.svgLayer.innerHTML = '';
+    }
+
+    draw(rootNode) {
+        this.reset();
+        if (!rootNode) return;
+
+        const calculatePositions = (node, x, y, level) => {
+            if (!node) return;
+            node.x = x;
+            node.y = y;
+            // Jarak horizontal mengecil seiring kedalaman
+            const offset = (this.width / Math.pow(2, level + 2)); 
+            calculatePositions(node.left, x - offset, y + 80, level + 1);
+            calculatePositions(node.right, x + offset, y + 80, level + 1);
+        };
+
+        calculatePositions(rootNode, this.width / 2, 50, 0);
+        this.renderRecursive(rootNode);
+    }
+
+    renderRecursive(node) {
+        if (!node) return;
+
+        if (node.left) {
+            this.drawLine(node.x, node.y, node.left.x, node.left.y);
+            this.renderRecursive(node.left);
+        }
+        if (node.right) {
+            this.drawLine(node.x, node.y, node.right.x, node.right.y);
+            this.renderRecursive(node.right);
+        }
+
+        this.createNodeElement(node);
+    }
+
+    drawLine(x1, y1, x2, y2) {
+        const line = document.createElementNS('http://www.w3.org/2000/svg', 'line');
+        // +25 karena node size 50px (radius 25)
+        line.setAttribute('x1', x1);
+        line.setAttribute('y1', y1 + 25); 
+        line.setAttribute('x2', x2);
+        line.setAttribute('y2', y2 + 25);
+        this.svgLayer.appendChild(line);
+    }
+
+    createNodeElement(node) {
+        const div = document.createElement('div');
+        div.className = 'node';
+        div.style.left = (node.x - 25) + 'px'; 
+        div.style.top = (node.y) + 'px';
+        div.id = `node-${node.value}`; // ID unik berbasis value
+        
+        // Struktur HTML dalam node: Value & Nickname
+        let innerHTML = `<strong>${node.value}</strong>`;
+        if(node.nickname) {
+            innerHTML += `<span class="nick">${node.nickname}</span>`;
+        }
+        div.innerHTML = innerHTML;
+        
+        div.addEventListener('click', (e) => {
+            e.stopPropagation();
+            showContextMenu(e.clientX, e.clientY, node.value);
+        });
+
+        this.container.appendChild(div);
+    }
+
+    async highlight(nodeValue, className = 'highlight') {
+        const el = document.getElementById(`node-${nodeValue}`);
+        if (el) {
+            el.classList.add(className);
+            await sleep(600);
+            if (className !== 'found') {
+                el.classList.remove(className);
+            }
+        }
+    }
+    
+    clearHighlights() {
+        const nodes = document.querySelectorAll('.node');
+        nodes.forEach(n => n.classList.remove('found', 'highlight'));
+    }
+}
+
+// === AVL TREE ===
+class AVLTree {
+    constructor(visualizer) {
+        this.root = null;
+        this.vis = visualizer;
+    }
+
+    getHeight(node) { return node ? node.height : 0; }
+    
+    updateHeight(node) {
+        if (node) node.height = 1 + Math.max(this.getHeight(node.left), this.getHeight(node.right));
+    }
+
+    getBalance(node) { return node ? this.getHeight(node.left) - this.getHeight(node.right) : 0; }
+
+    rightRotate(y) {
+        logger.add(`Rotasi Kanan pada ${fmt(y)}.`);
+        let x = y.left;
+        let T2 = x.right;
+        x.right = y;
+        y.left = T2;
+        this.updateHeight(y);
+        this.updateHeight(x);
+        return x;
+    }
+
+    leftRotate(x) {
+        logger.add(`Rotasi Kiri pada ${fmt(x)}.`);
+        let y = x.right;
+        let T2 = y.left;
+        y.left = x;
+        x.right = T2;
+        this.updateHeight(x);
+        this.updateHeight(y);
+        return y;
+    }
+
+    // --- Search Nickname Utility ---
+    findNodeObject(node, value) {
+        if (!node) return null;
+        if (node.value === value) return node;
+        if (value < node.value) return this.findNodeObject(node.left, value);
+        return this.findNodeObject(node.right, value);
+    }
+    
+    updateNickname(value, newNick) {
+        const node = this.findNodeObject(this.root, value);
+        if (node) {
+            node.nickname = newNick;
+            this.vis.draw(this.root);
+            logger.add(`Node ${value} diberi nickname: "${newNick}"`);
+        }
+    }
+
+    // --- INSERT ---
+    async insert(value) {
+        logger.add(`Insert ${value} ke AVL...`);
+        this.root = await this._insert(this.root, value);
+        this.vis.draw(this.root);
+        logger.add(`Insert selesai.`);
+    }
+
+    async _insert(node, value) {
+        if (!node) return new Node(value);
+        await this.vis.highlight(node.value);
+
+        if (value < node.value) {
+            node.left = await this._insert(node.left, value);
+        } else if (value > node.value) {
+            node.right = await this._insert(node.right, value);
+        } else {
+            logger.add(`Nilai ${value} sudah ada.`);
+            return node;
+        }
+
+        this.updateHeight(node);
+        let balance = this.getBalance(node);
+
+        if (balance > 1 && value < node.left.value) return this.rightRotate(node);
+        if (balance < -1 && value > node.right.value) return this.leftRotate(node);
+        if (balance > 1 && value > node.left.value) {
+            node.left = this.leftRotate(node.left);
+            return this.rightRotate(node);
+        }
+        if (balance < -1 && value < node.right.value) {
+            node.right = this.rightRotate(node.right);
+            return this.leftRotate(node);
+        }
+        return node;
+    }
+    
+    // --- DELETE ---
+    async delete(value) {
+        logger.add(`Mulai proses delete ${value}...`);
+        this.root = await this._delete(this.root, value);
+        this.vis.draw(this.root);
+        logger.add(`Proses delete ${value} selesai.`);
+    }
+
+    async _delete(node, value) {
+        if (!node) {
+            logger.add("Mencapai ujung leaf, node tidak ditemukan.");
+            return node;
+        }
+
+        await this.vis.highlight(node.value);
+
+        if (value < node.value) {
+            logger.add(`${value} < ${fmt(node)}, cari ke kiri.`);
+            node.left = await this._delete(node.left, value);
+        } else if (value > node.value) {
+            logger.add(`${value} > ${fmt(node)}, cari ke kanan.`);
+            node.right = await this._delete(node.right, value);
+        } else {
+            logger.add(`Node ${fmt(node)} ditemukan. Evaluasi anak...`);
+            
+            if (!node.left || !node.right) {
+                let temp = node.left ? node.left : node.right;
+                if (!temp) {
+                    logger.add("Node adalah leaf (tidak punya anak). Hapus langsung.");
+                    node = null;
+                } else {
+                    logger.add(`Node punya 1 anak (${fmt(temp)}). Ganti node dengan anaknya.`);
+                    node = temp;
+                }
+            } else {
+                logger.add("Node punya 2 anak. Mencari Successor (terkecil di kanan)...");
+                let temp = this.getMinValueNode(node.right);
+                logger.add(`Successor ditemukan: ${fmt(temp)}.`);
+                
+                // Copy value & nickname from successor
+                logger.add(`Salin nilai & nickname ${fmt(temp)} ke node ini.`);
+                node.value = temp.value;
+                node.nickname = temp.nickname;
+
+                logger.add(`Hapus node successor asli (${temp.value}) di subtree kanan.`);
+                node.right = await this._delete(node.right, temp.value);
+            }
+        }
+
+        if (!node) return node;
+
+        this.updateHeight(node);
+        let balance = this.getBalance(node);
+
+        // Rebalancing Log
+        if (balance > 1 || balance < -1) logger.add(`Tree tidak seimbang di ${fmt(node)} (Balance: ${balance}). Rebalancing...`);
+
+        if (balance > 1 && this.getBalance(node.left) >= 0) return this.rightRotate(node);
+        if (balance > 1 && this.getBalance(node.left) < 0) {
+            node.left = this.leftRotate(node.left);
+            return this.rightRotate(node);
+        }
+        if (balance < -1 && this.getBalance(node.right) <= 0) return this.leftRotate(node);
+        if (balance < -1 && this.getBalance(node.right) > 0) {
+            node.right = this.rightRotate(node.right);
+            return this.leftRotate(node);
+        }
+        return node;
+    }
+
+    getMinValueNode(node) {
+        let current = node;
+        while (current.left) current = current.left;
+        return current;
+    }
+
+    // --- LOOKUP ---
+    async lookup(value) {
+        logger.add(`Mencari ${value} di AVL Tree...`);
+        this.vis.clearHighlights();
+        let curr = this.root;
+        while(curr) {
+            await this.vis.highlight(curr.value);
+            if(value == curr.value) {
+                logger.add(`KETEMU: ${fmt(curr)}`);
+                await this.vis.highlight(curr.value, 'found');
+                return;
+            } else if (value < curr.value) {
+                logger.add(`${value} < ${fmt(curr)}, belok KIRI.`);
+                curr = curr.left;
+            } else {
+                logger.add(`${value} > ${fmt(curr)}, belok KANAN.`);
+                curr = curr.right;
+            }
+        }
+        logger.add(`Hasil: ${value} tidak ditemukan dalam tree.`);
+    }
+}
+
+// === MAX HEAP (OBJECT BASED) ===
+class MaxHeap {
+    constructor(visualizer) {
+        this.root = null;
+        this.vis = visualizer;
+        // Array menyimpan object Node, bukan cuma integer, supaya nickname terbawa
+        this.heapNodes = []; 
+    }
+
+    // --- Visual Helper ---
+    buildTreeFromArray(index) {
+        if (index >= this.heapNodes.length) return null;
+        // Kita copy node dari array agar referensi visual tidak kacau, tapi idealnya referensi sama
+        // Untuk visualisasi sederhana ini, kita ambil object dari array
+        let nodeRef = this.heapNodes[index];
+        // Kita perlu set left/right secara dinamis untuk visualisasi setiap draw
+        nodeRef.left = this.buildTreeFromArray(2 * index + 1);
+        nodeRef.right = this.buildTreeFromArray(2 * index + 2);
+        return nodeRef;
+    }
+
+    updateView() {
+        this.root = this.buildTreeFromArray(0);
+        this.vis.draw(this.root);
+    }
+
+    updateNickname(value, newNick) {
+        const node = this.heapNodes.find(n => n.value === value);
+        if(node) {
+            node.nickname = newNick;
+            logger.add(`Node ${value} di Heap diberi nickname: "${newNick}"`);
+            this.updateView();
+        }
+    }
+
+    // --- INSERT ---
+    async insert(value) {
+        logger.add(`Insert ${value} ke Heap (tambah di akhir array).`);
+        let newNode = new Node(value);
+        this.heapNodes.push(newNode);
+        this.updateView();
+        await sleep(500);
+        await this.heapifyUp(this.heapNodes.length - 1);
+        logger.add(`Insert selesai. Heap valid.`);
+    }
+
+    async heapifyUp(index) {
+        if (index === 0) return;
+        let parentIndex = Math.floor((index - 1) / 2);
+        
+        let current = this.heapNodes[index];
+        let parent = this.heapNodes[parentIndex];
+
+        logger.add(`Bandingkan ${fmt(current)} dengan parent ${fmt(parent)}`);
+        await this.vis.highlight(current.value);
+        await this.vis.highlight(parent.value);
+
+        if (current.value > parent.value) {
+            logger.add(`Anak lebih besar. Swap posisi.`);
+            // Swap objects in array
+            [this.heapNodes[index], this.heapNodes[parentIndex]] = [this.heapNodes[parentIndex], this.heapNodes[index]];
+            this.updateView();
+            await sleep(800);
+            await this.heapifyUp(parentIndex);
+        } else {
+            logger.add(`Posisi sudah benar (Parent >= Anak).`);
+        }
+    }
+
+    // --- DELETE ---
+    async delete(value) {
+        // Cari index
+        const index = this.heapNodes.findIndex(n => n.value === value);
+        if (index === -1) {
+            logger.add(`${value} tidak ditemukan di Heap.`);
+            return;
+        }
+
+        let targetNode = this.heapNodes[index];
+        logger.add(`Menghapus ${fmt(targetNode)} di index [${index}].`);
+        await this.vis.highlight(targetNode.value);
+
+        // Jika node terakhir
+        let lastNode = this.heapNodes.pop();
+        
+        if (index < this.heapNodes.length) { // Jika bukan elemen terakhir yang dihapus
+            logger.add(`Pindahkan elemen terakhir ${fmt(lastNode)} ke posisi index [${index}].`);
+            this.heapNodes[index] = lastNode;
+            this.updateView();
+            await sleep(500);
+            
+            // Cek perlu naik atau turun
+            let parentIndex = Math.floor((index - 1) / 2);
+            if (index > 0 && this.heapNodes[index].value > this.heapNodes[parentIndex].value) {
+                logger.add(`Nilai baru lebih besar dari parent, Heapify Up.`);
+                await this.heapifyUp(index);
+            } else {
+                logger.add(`Cek apakah perlu Heapify Down...`);
+                await this.heapifyDown(index);
+            }
+        } else {
+            logger.add("Yang dihapus adalah elemen terakhir. Tidak perlu reorder.");
+            this.updateView();
+        }
+    }
+
+    async heapifyDown(index) {
+        let largest = index;
+        let left = 2 * index + 1;
+        let right = 2 * index + 2;
+        let size = this.heapNodes.length;
+
+        if (left < size && this.heapNodes[left].value > this.heapNodes[largest].value) largest = left;
+        if (right < size && this.heapNodes[right].value > this.heapNodes[largest].value) largest = right;
+
+        if (largest !== index) {
+            logger.add(`Swap ${fmt(this.heapNodes[index])} dengan anak terbesar ${fmt(this.heapNodes[largest])}.`);
+            await this.vis.highlight(this.heapNodes[index].value);
+            
+            [this.heapNodes[index], this.heapNodes[largest]] = [this.heapNodes[largest], this.heapNodes[index]];
+            this.updateView();
+            await sleep(800);
+            await this.heapifyDown(largest);
+        } else {
+            logger.add(`Posisi node sudah valid (lebih besar dari anak-anaknya).`);
+        }
+    }
+
+    // --- LOOKUP ---
+    async lookup(value) {
+        logger.add(`Mencari ${value} di Heap (Scan Array linear)...`);
+        this.vis.clearHighlights();
+        for(let node of this.heapNodes) {
+            await this.vis.highlight(node.value);
+            if (node.value == value) {
+                logger.add(`Ditemukan: ${fmt(node)}`);
+                await this.vis.highlight(node.value, 'found');
+                return;
+            }
+        }
+        logger.add(`${value} tidak ditemukan.`);
+    }
+}
+
+// === SPLAY TREE ===
+class SplayTree {
+    constructor(visualizer) {
+        this.root = null;
+        this.vis = visualizer;
+    }
+
+    rightRotate(x) {
+        logger.add(`Rotate Right pada ${fmt(x)}`);
+        let y = x.left;
+        x.left = y.right;
+        y.right = x;
+        return y;
+    }
+
+    leftRotate(x) {
+        logger.add(`Rotate Left pada ${fmt(x)}`);
+        let y = x.right;
+        x.right = y.left;
+        y.left = x;
+        return y;
+    }
+
+    // Mencari node object untuk rename
+    findNodeObject(node, value) {
+        if (!node) return null;
+        if (node.value === value) return node;
+        // Ini pencarian naif tanpa splay hanya untuk rename
+        let found = this.findNodeObject(node.left, value);
+        if (found) return found;
+        return this.findNodeObject(node.right, value);
+    }
+
+    updateNickname(value, newNick) {
+        const node = this.findNodeObject(this.root, value);
+        if(node) {
+            node.nickname = newNick;
+            this.vis.draw(this.root);
+            logger.add(`Node ${value} diberi nickname: "${newNick}"`);
+        }
+    }
+
+    async splay(node, key) {
+        if (!node || node.value === key) return node;
+        await this.vis.highlight(node.value);
+
+        if (key < node.value) {
+            if (!node.left) return node;
+            // Zig-Zig
+            if (key < node.left.value) {
+                node.left.left = await this.splay(node.left.left, key);
+                logger.add("Zig-Zig (LL) -> Rotasi Kanan di Parent dulu");
+                node = this.rightRotate(node);
+            } else if (key > node.left.value) { // Zig-Zag
+                node.left.right = await this.splay(node.left.right, key);
+                if (node.left.right) {
+                    logger.add("Zig-Zag (LR) -> Rotasi Kiri anak, lalu Kanan parent");
+                    node.left = this.leftRotate(node.left);
+                }
+            }
+            if (!node.left) return node;
+            return this.rightRotate(node);
+        } else {
+            if (!node.right) return node;
+            // Zag-Zig
+            if (key < node.right.value) {
+                node.right.left = await this.splay(node.right.left, key);
+                if (node.right.left) {
+                    logger.add("Zag-Zig (RL) -> Rotasi Kanan anak, lalu Kiri parent");
+                    node.right = this.rightRotate(node.right);
+                }
+            } else if (key > node.right.value) { // Zag-Zag
+                node.right.right = await this.splay(node.right.right, key);
+                logger.add("Zag-Zag (RR) -> Rotasi Kiri di Parent dulu");
+                node = this.leftRotate(node);
+            }
+            if (!node.right) return node;
+            return this.leftRotate(node);
+        }
+    }
+
+    async insert(value) {
+        logger.add(`Insert ${value} Splay Tree.`);
+        if (!this.root) {
+            this.root = new Node(value);
+            this.vis.draw(this.root);
+            return;
+        }
+
+        this.root = await this.splay(this.root, value);
+        this.vis.draw(this.root);
+
+        if (this.root.value === value) {
+            logger.add("Nilai sudah ada, sudah di-splay ke root.");
+            return;
+        }
+
+        let newNode = new Node(value);
+        if (value < this.root.value) {
+            newNode.right = this.root;
+            newNode.left = this.root.left;
+            this.root.left = null;
+        } else {
+            newNode.left = this.root;
+            newNode.right = this.root.right;
+            this.root.right = null;
+        }
+        this.root = newNode;
+        logger.add("Node baru dijadikan ROOT baru.");
+        this.vis.draw(this.root);
+    }
+
+    async lookup(value) {
+        logger.add(`Lookup ${value}. Strategi: Splay node ke root.`);
+        this.vis.clearHighlights();
+        this.root = await this.splay(this.root, value);
+        this.vis.draw(this.root);
+        
+        if (this.root && this.root.value == value) {
+            logger.add(`Ditemukan: ${fmt(this.root)}. Sekarang dia di Root.`);
+            await this.vis.highlight(this.root.value, 'found');
+        } else {
+            logger.add("Tidak ditemukan. Node terakhir yg diakses dibawa ke root.");
+        }
+    }
+
+    async delete(value) {
+        logger.add(`Delete ${value} di Splay Tree.`);
+        if (!this.root) return;
+
+        logger.add("Langkah 1: Splay target ke root.");
+        this.root = await this.splay(this.root, value);
+        this.vis.draw(this.root);
+
+        if (this.root.value !== value) {
+            logger.add("Target tidak ditemukan setelah splaying.");
+            return;
+        }
+
+        logger.add(`Target ${fmt(this.root)} di root. Hapus dan gabung subtree kiri & kanan.`);
+        if (!this.root.left) {
+            this.root = this.root.right;
+        } else {
+            let rightTree = this.root.right;
+            this.root = this.root.left;
+            logger.add("Splay elemen maksimum di subtree kiri ke root baru.");
+            this.root = await this.splay(this.root, value); // Splay logic akan bawa max ke root
+            this.root.right = rightTree;
+        }
+        this.vis.draw(this.root);
+        logger.add("Delete selesai.");
+    }
+}
+
+/**
+ * MAIN CONTROLLER
+ */
+const visualizer = new TreeVisualizer();
+let currentTree = new AVLTree(visualizer);
+
+const selectTree = document.getElementById('tree-type');
+const inputVal = document.getElementById('node-value');
+const btnInsert = document.getElementById('btn-insert');
+const btnLookup = document.getElementById('btn-lookup');
+const btnDelete = document.getElementById('btn-delete');
+const ctxMenu = document.getElementById('context-menu');
+let processing = false;
+
+selectTree.addEventListener('change', () => {
+    visualizer.reset();
+    logger.clear();
+    logger.add(`--- Mode berubah: ${selectTree.value} ---`);
+    switch(selectTree.value) {
+        case 'AVL': currentTree = new AVLTree(visualizer); break;
+        case 'HEAP': currentTree = new MaxHeap(visualizer); break;
+        case 'SPLAY': currentTree = new SplayTree(visualizer); break;
+    }
+});
+
+async function executeAction(action) {
+    if (processing) return;
+    const val = parseInt(inputVal.value);
+    if (isNaN(val)) {
+        alert("Masukkan angka valid!");
+        return;
+    }
+
+    processing = true;
+    setButtonsDisabled(true);
+    
+    try {
+        await action(val);
+    } catch (e) {
+        console.error(e);
+        logger.add("Error: " + e.message);
+    }
+
+    processing = false;
+    setButtonsDisabled(false);
+    inputVal.value = '';
+    inputVal.focus();
+}
+
+function setButtonsDisabled(state) {
+    btnInsert.disabled = state;
+    btnLookup.disabled = state;
+    btnDelete.disabled = state;
+    const nodes = document.querySelectorAll('.node');
+    // Disable pointer events on nodes during animation
+    nodes.forEach(n => n.style.pointerEvents = state ? 'none' : 'auto');
+}
+
+btnInsert.addEventListener('click', () => executeAction(val => currentTree.insert(val)));
+btnLookup.addEventListener('click', () => executeAction(val => currentTree.lookup(val)));
+btnDelete.addEventListener('click', () => executeAction(val => currentTree.delete(val)));
+
+// Context Menu Logic
+let selectedNodeValue = null;
+
+function showContextMenu(x, y, value) {
+    if (processing) return;
+    selectedNodeValue = value;
+    ctxMenu.style.left = x + 'px';
+    ctxMenu.style.top = y + 'px';
+    ctxMenu.style.display = 'block';
+}
+
+document.addEventListener('click', () => {
+    ctxMenu.style.display = 'none';
+});
+
+// Fitur 1: DELETE via Klik Kanan
+document.getElementById('ctx-delete').addEventListener('click', () => {
+    logger.add(`[Manual] User memilih hapus node ${selectedNodeValue} via menu.`);
+    inputVal.value = selectedNodeValue; // Isi textbox untuk kejelasan
+    btnDelete.click(); // Trigger logic tombol delete yang sudah lengkap log-nya
+});
+
+// Fitur 2: RENAME (Nickname)
+document.getElementById('ctx-rename').addEventListener('click', () => {
+    const newNick = prompt(`Set Nickname untuk Node ${selectedNodeValue}:`);
+    if (newNick !== null) {
+        currentTree.updateNickname(selectedNodeValue, newNick);
+    }
+});
+
+</script>
+</body>
+</html>

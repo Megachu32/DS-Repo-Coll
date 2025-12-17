@@ -98,6 +98,36 @@ export class Trie {
             return false;
         }
     }
+    
+    findWords(prefix) {
+        prefix = prefix.toLowerCase();
+        let node = this.root;
+        
+        // 1. Navigate down to the end of the prefix
+        for (let char of prefix) {
+            let index = char.charCodeAt(0) - 97; // 'a' code is 97
+            if (!node.children[index]) return []; // Path doesn't exist
+            node = node.children[index];
+        }
+
+        // 2. DFS to collect all words from this point
+        let results = [];
+        
+        const dfs = (currNode, currentString) => {
+            if (currNode.isLeaf) {
+                results.push(currentString);
+            }
+            // Check all children
+            for (let child of currNode.children) {
+                if (child) {
+                    dfs(child, currentString + child.char);
+                }
+            }
+        };
+
+        dfs(node, prefix);
+        return results;
+    }
 
     // Delete
     async delete(key) {

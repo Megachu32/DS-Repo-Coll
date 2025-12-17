@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Prefix Trie Simulator</title>
+    <title>Prefix Trie Autocomplete</title>
     <style>
         :root {
             --bg-color: #f4f4f9;
@@ -18,23 +18,21 @@
             font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
             margin: 0;
             padding: 0;
-            height: 100vh; /* Uses full viewport height */
-            height: 100dvh; /* Better mobile support (dynamic viewport) */
+            height: 100dvh;
             display: flex;
             background-color: var(--bg-color);
             color: var(--text);
-            overflow: hidden; /* Prevents body scroll, handles internal scrolling */
+            overflow: hidden;
         }
 
-        /* --- DESKTOP LAYOUT (Default) --- */
         #simulation-container {
             width: 80%;
             height: 100%;
             position: relative;
             background-color: #eef2f5;
-            overflow: auto; /* Allows panning/scrolling on all devices */
+            overflow: auto;
             border-right: 2px solid #ddd;
-            display: block; /* changed from flex to block to allow scrolling context */
+            display: block; 
         }
 
         #control-panel {
@@ -49,28 +47,16 @@
             z-index: 50;
         }
 
-        /* SVG and Nodes layers must have a min-width to prevent squishing on mobile */
         #svg-layer, #nodes-layer {
             position: absolute;
             top: 0;
             left: 0;
             height: 100%;
-            /* Important: Allow this to grow so tree spreads out */
             min-width: 100%; 
             width: max-content; 
         }
 
-        #svg-layer {
-            z-index: 1;
-            pointer-events: none;
-        }
-
-        /* --- NODE STYLING --- */
-        line {
-            stroke: #95a5a6;
-            stroke-width: 2;
-            transition: all 0.5s ease;
-        }
+        #svg-layer { z-index: 1; pointer-events: none; }
 
         .node {
             width: var(--node-size);
@@ -88,13 +74,10 @@
             transition: all 0.5s ease, background-color 0.3s;
             box-shadow: 0 2px 5px rgba(0,0,0,0.1);
             font-size: 14px;
-            user-select: none; /* Prevents text selection on double tap */
+            user-select: none; 
         }
 
-        .node strong {
-            font-size: 1.1rem;
-            line-height: 1;
-        }
+        .node strong { font-size: 1.1rem; line-height: 1; }
         
         .node.is-leaf {
             border-color: #27ae60;
@@ -110,102 +93,76 @@
             font-weight: bold;
         }
 
-        .node.highlight {
-            background-color: #f1c40f;
-            border-color: #f39c12;
-        }
+        .node.highlight { background-color: #f1c40f; border-color: #f39c12; }
+        .node.found { background-color: #2ecc71; color: white; border-color: #27ae60; }
+        line { stroke: #95a5a6; stroke-width: 2; transition: all 0.5s ease; }
 
-        .node.found {
-            background-color: #2ecc71;
-            color: white;
-            border-color: #27ae60;
-        }
-
-        /* --- CONTROLS --- */
         h2 { margin-top: 0; font-size: 1.2rem; margin-bottom: 20px; }
         .control-group { margin-bottom: 15px; }
         label { display: block; margin-bottom: 5px; font-weight: 600; font-size: 0.9rem;}
 
         input[type="text"] {
             width: 100%;
-            padding: 12px; /* Larger touch target */
-            margin-bottom: 10px;
+            padding: 12px; 
+            margin-bottom: 5px;
             border: 1px solid #ccc;
             border-radius: 4px;
             box-sizing: border-box;
-            font-size: 16px; /* Prevents iOS zoom on focus */
+            font-size: 16px; 
         }
 
-        .button-group {
+        /* --- SUGGESTIONS UI --- */
+        #suggestions-box {
+            min-height: 30px;
+            margin-bottom: 15px;
             display: flex;
-            gap: 8px;
-            margin-bottom: 10px;
+            flex-wrap: wrap;
+            gap: 5px;
         }
-
-        button {
-            flex: 1;
-            padding: 12px; /* Larger touch target */
-            border: none;
-            border-radius: 4px;
-            background-color: var(--primary);
-            color: white;
+        .suggestion-chip {
+            background-color: #e8f6f3;
+            color: #16a085;
+            padding: 5px 10px;
+            border-radius: 15px;
+            font-size: 0.85rem;
             cursor: pointer;
-            font-weight: bold;
+            border: 1px solid #a3e4d7;
             transition: background 0.2s;
-            font-size: 0.9rem;
-            touch-action: manipulation; /* Removes tap delay */
+        }
+        .suggestion-chip:hover {
+            background-color: #1abc9c;
+            color: white;
+        }
+        .suggestion-label {
+            font-size: 0.75rem; color: #999; margin-bottom: 5px; width: 100%;
         }
 
+        .button-group { display: flex; gap: 8px; margin-bottom: 10px; }
+        button {
+            flex: 1; padding: 12px; border: none; border-radius: 4px;
+            background-color: var(--primary); color: white; cursor: pointer;
+            font-weight: bold; transition: background 0.2s; font-size: 0.9rem;
+            touch-action: manipulation; 
+        }
         button:hover { background-color: #732d91; }
-        button:active { transform: scale(0.98); }
         button:disabled { background-color: #95a5a6; cursor: not-allowed; }
         button.delete-btn { background-color: var(--accent); }
         button.delete-btn:hover { background-color: #c0392b; }
 
         #log-area {
-            flex: 1;
-            background-color: #f8f9fa;
-            border: 1px solid #ddd;
-            border-radius: 4px;
-            padding: 10px;
-            overflow-y: auto;
-            font-family: 'Courier New', Courier, monospace;
-            font-size: 0.85rem;
-            min-height: 100px; /* Ensure visibility on mobile */
+            flex: 1; background-color: #f8f9fa; border: 1px solid #ddd;
+            border-radius: 4px; padding: 10px; overflow-y: auto;
+            font-family: 'Courier New', Courier, monospace; font-size: 0.85rem;
+            min-height: 100px; 
         }
-
         .log-entry { margin-bottom: 5px; border-bottom: 1px solid #eee; padding-bottom: 2px; }
-        .hint { font-size: 0.8rem; color: #666; margin-bottom: 5px; font-style: italic;}
 
-        /* --- MOBILE MEDIA QUERY (< 768px) --- */
         @media screen and (max-width: 768px) {
-            body {
-                flex-direction: column; /* Stack vertically */
-            }
-
-            #simulation-container {
-                width: 100%;
-                height: 60%; /* Visualization takes top 60% */
-                border-right: none;
-                border-bottom: 2px solid #ddd;
-            }
-
-            #control-panel {
-                width: 100%;
-                height: 40%; /* Controls take bottom 40% */
-                padding: 15px;
-                box-shadow: 0 -4px 10px rgba(0,0,0,0.1);
-            }
-
+            body { flex-direction: column; }
+            #simulation-container { width: 100%; height: 50%; border-right: none; border-bottom: 2px solid #ddd; }
+            #control-panel { width: 100%; height: 50%; padding: 15px; box-shadow: 0 -4px 10px rgba(0,0,0,0.1); }
             h2 { font-size: 1rem; margin-bottom: 10px; }
-            
-            /* Make buttons stack in 2 rows if screen is very narrow */
-            .button-group { flex-wrap: wrap; }
-            button { min-width: 30%; } 
-            
-            #log-area { font-size: 0.75rem; }
         }
-
     </style>
 </head>
 <body>
@@ -220,11 +177,14 @@
         
         <div class="control-group">
             <label for="node-value">Input String:</label>
-            <input type="text" id="node-value" placeholder="e.g. apple" autocomplete="off"/>
-            <div id="input-hint" class="hint">Only letters (a-z) allowed.</div>
+            <input type="text" id="node-value" placeholder="Type to autocomplete..." autocomplete="off"/>
+            
+            <div id="suggestions-box">
+                <span class="suggestion-label">Suggestions will appear here...</span>
+            </div>
             
             <div class="button-group">
-                <button id="btn-insert">Insert</button>
+                <button id="btn-insert">Insert Word</button>
                 <button id="btn-lookup">Lookup</button>
                 <button id="btn-delete" class="delete-btn">Delete</button>
             </div>
@@ -232,7 +192,7 @@
 
         <label>Activity Log:</label>
         <div id="log-area">
-            <div class="log-entry">System ready. Mode: Trie.</div>
+            <div class="log-entry">System ready. Type to see predictions.</div>
         </div>
     </div>
 

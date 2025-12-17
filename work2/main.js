@@ -1,8 +1,5 @@
 import { Trie } from './trie.js';
 
-/**
- * UTILITIES
- */
 const sleep = (ms) => new Promise(resolve => setTimeout(resolve, ms));
 
 const logger = {
@@ -14,28 +11,19 @@ const logger = {
         this.area.appendChild(div);
         this.area.scrollTop = this.area.scrollHeight;
     },
-    clear: function() {
-        this.area.innerHTML = '';
-    }
+    clear: function() { this.area.innerHTML = ''; }
 };
 
-/**
- * VISUALIZATION ENGINE (TRIE ONLY)
- */
 class TreeVisualizer {
     constructor() {
-        // This is the inner layer that holds the nodes
         this.nodesLayer = document.getElementById('nodes-layer');
-        // This is the SVG layer for lines
         this.svgLayer = document.getElementById('svg-layer');
-        // This is the outer scrollable window
         this.scrollWindow = document.getElementById('simulation-container');
     }
 
     reset() {
         this.nodesLayer.innerHTML = '';
         this.svgLayer.innerHTML = '';
-        // Reset width to default so it doesn't get stuck huge
         this.nodesLayer.style.width = '100%';
         this.svgLayer.style.width = '100%';
     }
@@ -46,7 +34,6 @@ class TreeVisualizer {
         this.drawTrie(rootNode);
     }
 
-    // --- TRIE LAYOUT ---
     drawTrie(rootNode) {
         const leafCount = (node) => {
             let count = 0;
@@ -61,33 +48,20 @@ class TreeVisualizer {
         };
 
         const totalLeaves = leafCount(rootNode);
-        
-        // --- FIX START: DYNAMIC WIDTH CALCULATION ---
-        // 1. Get the width of the visible screen (e.g., 300px on mobile, 1000px on desktop)
         const visibleWidth = this.scrollWindow.offsetWidth;
-        
-        // 2. Define a minimum width needed per leaf node (e.g., 60px)
         const minWidthPerLeaf = 60;
-        
-        // 3. Calculate how wide the tree WANTS to be
         const requiredWidth = totalLeaves * minWidthPerLeaf;
-
-        // 4. Use the larger of the two. If tree is small, use screen width. If tree is huge, use required width.
         const effectiveWidth = Math.max(visibleWidth, requiredWidth);
 
-        // 5. Apply this width to the DOM elements so the scrollbar appears
         this.nodesLayer.style.width = `${effectiveWidth}px`;
         this.svgLayer.style.width = `${effectiveWidth}px`;
-        // --- FIX END ---
 
         const sectorWidth = effectiveWidth / totalLeaves;
         let currentLeafIndex = 0;
 
         const assignCoords = (node, level) => {
             if(!node) return;
-            
             let activeChildren = node.children.filter(n => n !== null);
-            
             node.y = 50 + (level * 80);
 
             if (activeChildren.length === 0) {
@@ -109,7 +83,6 @@ class TreeVisualizer {
 
     renderRecursiveTrie(node) {
         if (!node) return;
-        
         for(let child of node.children) {
             if (child) {
                 this.drawLine(node.x, node.y, child.x, child.y);
@@ -138,7 +111,6 @@ class TreeVisualizer {
         div.id = `node-${node.id}`; 
         
         let displayVal = node.char === '*' ? 'root' : node.char;
-
         div.innerHTML = `<strong>${displayVal}</strong>`;
         this.nodesLayer.appendChild(div);
     }
@@ -148,13 +120,9 @@ class TreeVisualizer {
         const el = document.getElementById(`node-${nodeObj.id}`);
         if (el) {
             el.classList.add(className);
-            // Auto-scroll to ensure the highlighted node is visible
             el.scrollIntoView({ behavior: 'smooth', block: 'center', inline: 'center' });
-            
             await sleep(500);
-            if (className !== 'found') {
-                el.classList.remove(className);
-            }
+            if (className !== 'found') el.classList.remove(className);
         }
     }
     
@@ -171,14 +139,49 @@ const visualizer = new TreeVisualizer();
 const currentTree = new Trie(visualizer);
 
 const inputVal = document.getElementById('node-value');
+const suggestionsBox = document.getElementById('suggestions-box');
 const btnInsert = document.getElementById('btn-insert');
 const btnLookup = document.getElementById('btn-lookup');
 const btnDelete = document.getElementById('btn-delete');
 let processing = false;
 
+// --- NEW: Handle Autocomplete Logic ---
+function updateSuggestions(text) {
+    if(!text || text.length === 0) {
+        suggestionsBox.innerHTML = '<span class="suggestion-label">Type to see predictions...</span>';
+        return;
+    }
+    
+    // Call the synchronous findWords method
+    const words = currentTree.findWords(text);
+    
+    suggestionsBox.innerHTML = '';
+    if(words.length === 0) {
+        suggestionsBox.innerHTML = '<span class="suggestion-label">No matches found.</span>';
+        return;
+    }
+
+    suggestionsBox.innerHTML = '<span class="suggestion-label">Did you mean:</span>';
+    
+    words.forEach(word => {
+        const chip = document.createElement('div');
+        chip.className = 'suggestion-chip';
+        chip.innerText = word;
+        chip.onclick = () => {
+            inputVal.value = word; // Autocomplete on click
+            updateSuggestions(word);
+        };
+        suggestionsBox.appendChild(chip);
+    });
+}
+
+// Input Event for typing
+inputVal.addEventListener('input', (e) => {
+    updateSuggestions(e.target.value.trim());
+});
+
 async function executeAction(action) {
     if (processing) return;
-    
     let rawVal = inputVal.value.trim();
     if (!rawVal) return;
 
@@ -187,6 +190,8 @@ async function executeAction(action) {
     
     try {
         await action(rawVal);
+        // Update suggestions after action (e.g. inserting new word)
+        updateSuggestions(inputVal.value);
     } catch (e) {
         console.error(e);
         logger.add("Error: " + e.message);
@@ -194,7 +199,6 @@ async function executeAction(action) {
 
     processing = false;
     setButtonsDisabled(false);
-    inputVal.value = '';
     inputVal.focus();
 }
 

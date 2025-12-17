@@ -2,13 +2,13 @@
 <html lang="id">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Universal Tree Data Structure Simulator</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Prefix Trie Simulator</title>
     <style>
         :root {
             --bg-color: #f4f4f9;
             --panel-bg: #ffffff;
-            --primary: #3498db;
+            --primary: #8e44ad;
             --accent: #e74c3c;
             --text: #2c3e50;
             --node-size: 50px;
@@ -18,23 +18,23 @@
             font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
             margin: 0;
             padding: 0;
-            height: 100vh;
+            height: 100vh; /* Uses full viewport height */
+            height: 100dvh; /* Better mobile support (dynamic viewport) */
             display: flex;
             background-color: var(--bg-color);
             color: var(--text);
-            overflow: hidden;
+            overflow: hidden; /* Prevents body scroll, handles internal scrolling */
         }
 
-        /* Layout 80% - 20% */
+        /* --- DESKTOP LAYOUT (Default) --- */
         #simulation-container {
             width: 80%;
             height: 100%;
             position: relative;
             background-color: #eef2f5;
-            overflow: hidden; 
+            overflow: auto; /* Allows panning/scrolling on all devices */
             border-right: 2px solid #ddd;
-            display: flex;
-            justify-content: center;
+            display: block; /* changed from flex to block to allow scrolling context */
         }
 
         #control-panel {
@@ -49,16 +49,23 @@
             z-index: 50;
         }
 
-        #svg-layer {
+        /* SVG and Nodes layers must have a min-width to prevent squishing on mobile */
+        #svg-layer, #nodes-layer {
             position: absolute;
             top: 0;
             left: 0;
-            width: 100%;
             height: 100%;
+            /* Important: Allow this to grow so tree spreads out */
+            min-width: 100%; 
+            width: max-content; 
+        }
+
+        #svg-layer {
             z-index: 1;
             pointer-events: none;
         }
 
+        /* --- NODE STYLING --- */
         line {
             stroke: #95a5a6;
             stroke-width: 2;
@@ -81,6 +88,7 @@
             transition: all 0.5s ease, background-color 0.3s;
             box-shadow: 0 2px 5px rgba(0,0,0,0.1);
             font-size: 14px;
+            user-select: none; /* Prevents text selection on double tap */
         }
 
         .node strong {
@@ -88,23 +96,18 @@
             line-height: 1;
         }
         
-        /* Specific style for Trie Leaf nodes */
         .node.is-leaf {
-            border-color: #8e44ad;
+            border-color: #27ae60;
             border-width: 3px;
+            background-color: #eafaf1;
         }
         .node.is-leaf::after {
-            content: "END";
+            content: "WORD";
             font-size: 0.5rem;
-            color: #8e44ad;
+            color: #27ae60;
             position: absolute;
             bottom: 5px;
-        }
-
-        .node:hover {
-            background-color: #d6eaf8;
-            transform: scale(1.1);
-            z-index: 10;
+            font-weight: bold;
         }
 
         .node.highlight {
@@ -118,31 +121,30 @@
             border-color: #27ae60;
         }
 
-        /* Controls Styling */
-        h2 { margin-top: 0; font-size: 1.2rem; }
-        
+        /* --- CONTROLS --- */
+        h2 { margin-top: 0; font-size: 1.2rem; margin-bottom: 20px; }
         .control-group { margin-bottom: 15px; }
-
         label { display: block; margin-bottom: 5px; font-weight: 600; font-size: 0.9rem;}
 
-        select, input[type="text"], input[type="number"] {
+        input[type="text"] {
             width: 100%;
-            padding: 10px;
+            padding: 12px; /* Larger touch target */
             margin-bottom: 10px;
             border: 1px solid #ccc;
             border-radius: 4px;
             box-sizing: border-box;
+            font-size: 16px; /* Prevents iOS zoom on focus */
         }
 
         .button-group {
             display: flex;
-            gap: 5px;
+            gap: 8px;
             margin-bottom: 10px;
         }
 
         button {
             flex: 1;
-            padding: 10px;
+            padding: 12px; /* Larger touch target */
             border: none;
             border-radius: 4px;
             background-color: var(--primary);
@@ -150,15 +152,16 @@
             cursor: pointer;
             font-weight: bold;
             transition: background 0.2s;
+            font-size: 0.9rem;
+            touch-action: manipulation; /* Removes tap delay */
         }
 
-        button:hover { background-color: #2980b9; }
+        button:hover { background-color: #732d91; }
+        button:active { transform: scale(0.98); }
         button:disabled { background-color: #95a5a6; cursor: not-allowed; }
-
         button.delete-btn { background-color: var(--accent); }
         button.delete-btn:hover { background-color: #c0392b; }
 
-        /* Log Area */
         #log-area {
             flex: 1;
             background-color: #f8f9fa;
@@ -168,15 +171,40 @@
             overflow-y: auto;
             font-family: 'Courier New', Courier, monospace;
             font-size: 0.85rem;
+            min-height: 100px; /* Ensure visibility on mobile */
         }
 
-        .log-entry {
-            margin-bottom: 5px;
-            border-bottom: 1px solid #eee;
-            padding-bottom: 2px;
-        }
-        
+        .log-entry { margin-bottom: 5px; border-bottom: 1px solid #eee; padding-bottom: 2px; }
         .hint { font-size: 0.8rem; color: #666; margin-bottom: 5px; font-style: italic;}
+
+        /* --- MOBILE MEDIA QUERY (< 768px) --- */
+        @media screen and (max-width: 768px) {
+            body {
+                flex-direction: column; /* Stack vertically */
+            }
+
+            #simulation-container {
+                width: 100%;
+                height: 60%; /* Visualization takes top 60% */
+                border-right: none;
+                border-bottom: 2px solid #ddd;
+            }
+
+            #control-panel {
+                width: 100%;
+                height: 40%; /* Controls take bottom 40% */
+                padding: 15px;
+                box-shadow: 0 -4px 10px rgba(0,0,0,0.1);
+            }
+
+            h2 { font-size: 1rem; margin-bottom: 10px; }
+            
+            /* Make buttons stack in 2 rows if screen is very narrow */
+            .button-group { flex-wrap: wrap; }
+            button { min-width: 30%; } 
+            
+            #log-area { font-size: 0.75rem; }
+        }
 
     </style>
 </head>
@@ -188,22 +216,12 @@
     </div>
 
     <div id="control-panel">
-        <h2>Tree Controller</h2>
+        <h2>Prefix Trie Simulator</h2>
         
         <div class="control-group">
-            <label for="tree-type">Tipe Struktur Data:</label>
-            <select id="tree-type">
-                <option value="AVL">AVL Tree (Number)</option>
-                <option value="HEAP">Max Heap (Number)</option>
-                <option value="SPLAY">Splay Tree (Number)</option>
-                <option value="TRIE">Prefix Trie (String)</option>
-            </select>
-        </div>
-
-        <div class="control-group">
-            <label for="node-value">Input:</label>
-            <input type="text" id="node-value" placeholder="Masukkan nilai..." autocomplete="off"/>
-            <div id="input-hint" class="hint">Masukkan angka integer.</div>
+            <label for="node-value">Input String:</label>
+            <input type="text" id="node-value" placeholder="e.g. apple" autocomplete="off"/>
+            <div id="input-hint" class="hint">Only letters (a-z) allowed.</div>
             
             <div class="button-group">
                 <button id="btn-insert">Insert</button>
@@ -214,7 +232,7 @@
 
         <label>Activity Log:</label>
         <div id="log-area">
-            <div class="log-entry">System ready. Default: AVL Tree.</div>
+            <div class="log-entry">System ready. Mode: Trie.</div>
         </div>
     </div>
 

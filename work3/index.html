@@ -1,0 +1,274 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Tree & Skip List Visualizer</title>
+<style>
+body{
+    margin:0;
+    display:flex;
+    height:100vh;
+    font-family:Segoe UI;
+}
+#sim{
+    flex:1;
+    position:relative;
+    background:#eef2f5;
+}
+#panel{
+    width:260px;
+    background:#fff;
+    padding:15px;
+    box-shadow:-2px 0 5px rgba(0,0,0,.1);
+}
+svg{
+    position:absolute;
+    width:100%;
+    height:100%;
+    pointer-events:none;
+}
+.node{
+    width:46px;
+    height:46px;
+    border-radius:50%;
+    border:2px solid #3498db;
+    background:white;
+    position:absolute;
+    display:flex;
+    flex-direction:column;
+    align-items:center;
+    justify-content:center;
+    font-size:13px;
+}
+.small{font-size:9px;color:#555}
+.level-label{
+    position:absolute;
+    font-size:12px;
+    color:#555;
+}
+button,select,input{
+    width:100%;
+    margin-top:6px;
+    padding:8px;
+}
+</style>
+</head>
+
+<body>
+
+<div id="sim">
+<svg id="svg"></svg>
+<div id="nodes"></div>
+</div>
+
+<div id="panel">
+<select id="mode">
+<option value="treap">Treap</option>
+<option value="skip">Skip List</option>
+</select>
+<input id="val" type="number" placeholder="Value">
+<button onclick="insert()">Insert</button>
+<button onclick="remove()">Delete</button>
+<button onclick="lookup()">Lookup</button>
+</div>
+
+<script>
+const svg=document.getElementById("svg");
+const nodesDiv=document.getElementById("nodes");
+
+function clear(){
+    svg.innerHTML="";
+    nodesDiv.innerHTML="";
+}
+function line(x1,y1,x2,y2){
+    const l=document.createElementNS("http://www.w3.org/2000/svg","line");
+    l.setAttribute("x1",x1);
+    l.setAttribute("y1",y1);
+    l.setAttribute("x2",x2);
+    l.setAttribute("y2",y2);
+    l.setAttribute("stroke","#888");
+    svg.appendChild(l);
+}
+function node(x,y,html){
+    const d=document.createElement("div");
+    d.className="node";
+    d.style.left=(x-23)+"px";
+    d.style.top=(y-23)+"px";
+    d.innerHTML=html;
+    nodesDiv.appendChild(d);
+}
+
+/* ---------------- TREAP ---------------- */
+
+class TNode{
+    constructor(v){
+        this.v=v;
+        this.p=Math.random();
+        this.l=this.r=null;
+    }
+}
+class Treap{
+    constructor(){this.root=null;}
+    rotR(y){let x=y.l;y.l=x.r;x.r=y;return x;}
+    rotL(x){let y=x.r;x.r=y.l;y.l=x;return y;}
+    ins(r,n){
+        if(!r) return n;
+        if(n.v<r.v){
+            r.l=this.ins(r.l,n);
+            if(r.l.p>r.p) r=this.rotR(r);
+        }else{
+            r.r=this.ins(r.r,n);
+            if(r.r.p>r.p) r=this.rotL(r);
+        }
+        return r;
+    }
+    insert(v){this.root=this.ins(this.root,new TNode(v));drawTreap();}
+    del(r,v){
+        if(!r) return null;
+        if(v<r.v) r.l=this.del(r.l,v);
+        else if(v>r.v) r.r=this.del(r.r,v);
+        else{
+            if(!r.l) return r.r;
+            if(!r.r) return r.l;
+            if(r.l.p>r.r.p){r=this.rotR(r);r.r=this.del(r.r,v);}
+            else{r=this.rotL(r);r.l=this.del(r.l,v);}
+        }
+        return r;
+    }
+    delete(v){this.root=this.del(this.root,v);drawTreap();}
+}
+
+function drawTreap(){
+    clear();
+    function dfs(n,x,y,dx){
+        if(!n) return;
+        node(x,y,`${n.v}<div class="small">p=${n.p.toFixed(2)}</div>`);
+        if(n.l){line(x,y,x-dx,y+70);dfs(n.l,x-dx,y+70,dx/2);}
+        if(n.r){line(x,y,x+dx,y+70);dfs(n.r,x+dx,y+70,dx/2);}
+    }
+    dfs(treap.root,window.innerWidth/2-130,70,160);
+}
+
+/* ---------------- SKIP LIST ---------------- */
+
+class SNode{
+    constructor(v,l){
+        this.v=v;
+        this.l=l;
+        this.f=Array(l).fill(null);
+    }
+}
+class SkipList{
+    constructor(max=5){
+        this.max=max;
+        this.level=1;
+        this.head=new SNode(-Infinity,max);
+        this.arr=[];
+    }
+    rand(){
+        let l=1;
+        while(Math.random()<0.5 && l<this.max) l++;
+        return l;
+    }
+    insert(v){
+        let upd=Array(this.max);
+        let c=this.head;
+        for(let i=this.level-1;i>=0;i--){
+            while(c.f[i] && c.f[i].v<v) c=c.f[i];
+            upd[i]=c;
+        }
+        let lvl=this.rand();
+        if(lvl>this.level){
+            for(let i=this.level;i<lvl;i++) upd[i]=this.head;
+            this.level=lvl;
+        }
+        let n=new SNode(v,lvl);
+        for(let i=0;i<lvl;i++){
+            n.f[i]=upd[i].f[i];
+            upd[i].f[i]=n;
+        }
+        this.arr.push(n);
+        this.arr.sort((a,b)=>a.v-b.v);
+        drawSkip();
+    }
+    delete(v){
+        let upd=Array(this.max);
+        let c=this.head;
+        for(let i=this.level-1;i>=0;i--){
+            while(c.f[i] && c.f[i].v<v) c=c.f[i];
+            upd[i]=c;
+        }
+        c=c.f[0];
+        if(!c||c.v!==v) return;
+        for(let i=0;i<this.level;i++){
+            if(upd[i].f[i]!==c) break;
+            upd[i].f[i]=c.f[i];
+        }
+        this.arr=this.arr.filter(n=>n.v!==v);
+        while(this.level>1 && !this.head.f[this.level-1]) this.level--;
+        drawSkip();
+    }
+}
+
+function drawSkip(){
+    clear();
+    const startX=120, startY=70, gx=80, gy=60;
+
+    skip.arr.forEach((n,i)=>n.x=startX+i*gx);
+
+    // skip levels
+    for(let l=0;l<skip.level;l++){
+        let y=startY+(skip.level-l-1)*gy;
+        let lab=document.createElement("div");
+        lab.className="level-label";
+        lab.style.left="20px";
+        lab.style.top=(y-8)+"px";
+        lab.textContent="Level "+(l+1);
+        nodesDiv.appendChild(lab);
+
+        let prev=null;
+        for(const n of skip.arr){
+            if(n.l>l){
+                if(prev) line(prev.x,y,n.x,y);
+                node(n.x,y,`${n.v}<div class="small">lvl ${n.l}</div>`);
+                prev=n;
+            }
+        }
+    }
+
+    // tree projection below
+    function build(a){
+        if(!a.length) return null;
+        let m=Math.floor(a.length/2);
+        let r={v:a[m].v,l:build(a.slice(0,m)),r:build(a.slice(m+1))};
+        return r;
+    }
+    function dfs(n,x,y,dx){
+        if(!n) return;
+        node(x,y,n.v);
+        if(n.l){line(x,y,x-dx,y+70);dfs(n.l,x-dx,y+70,dx/2);}
+        if(n.r){line(x,y,x+dx,y+70);dfs(n.r,x+dx,y+70,dx/2);}
+    }
+    dfs(build(skip.arr),window.innerWidth/2-130,startY+skip.level*gy+80,160);
+}
+
+/* ---------------- UI ---------------- */
+
+let treap=new Treap();
+let skip=new SkipList();
+
+function insert(){
+    let v=+val.value;
+    if(mode.value==="treap") treap.insert(v);
+    else skip.insert(v);
+}
+function remove(){
+    let v=+val.value;
+    if(mode.value==="treap") treap.delete(v);
+    else skip.delete(v);
+}
+function lookup(){}
+
+</script>
+</body>
+</html>

@@ -197,6 +197,7 @@
 </head>
 <body>
 
+    <!-- //used for editing individual nodes  -->
     <div id="simulation-container">
         <svg id="svg-layer"></svg>
         <div id="nodes-layer"></div>
@@ -206,6 +207,7 @@
         </div>
     </div>
 
+    <!-- // used to select and input values for tree operations -->
     <div id="control-panel">
         <h2>Tree Controller</h2>
         
@@ -235,12 +237,15 @@
         </div>
     </div>
 
+<!-- // fucking javascript code for tree visualization and interaction -->
 <script>
 /**
  * UTILITIES
  */
+ //idk timer stuff
 const sleep = (ms) => new Promise(resolve => setTimeout(resolve, ms));
 
+//the list or log messages 
 const logger = {
     area: document.getElementById('log-area'),
     add: function(text) {
@@ -268,6 +273,7 @@ function fmt(node) {
  * DATA STRUCTURE CLASSES
  */
 
+// Node dasar untuk semua tree
 class Node {
     constructor(value) {
         this.value = value;
@@ -285,6 +291,8 @@ class Node {
 /**
  * VISUALIZATION ENGINE
  */
+
+// used to draw and manage tree nodes and edges
 class TreeVisualizer {
     constructor() {
         this.container = document.getElementById('nodes-layer');

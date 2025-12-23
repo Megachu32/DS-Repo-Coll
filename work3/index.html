@@ -40,6 +40,10 @@ svg{
     justify-content:center;
     font-size:13px;
 }
+.node.highlight{
+    border-color:#e74c3c;
+    box-shadow:0 0 8px rgba(231,76,60,.7);
+}
 .small{font-size:9px;color:#555}
 .level-label{
     position:absolute;
@@ -97,6 +101,16 @@ function node(x,y,html){
     d.innerHTML=html;
     nodesDiv.appendChild(d);
 }
+function highlightByValue(value){
+    const all=document.querySelectorAll(".node");
+    all.forEach(n=>{
+        if(n.firstChild && n.firstChild.nodeValue==value){
+            n.classList.add("highlight");
+            setTimeout(()=>n.classList.remove("highlight"),1200);
+        }
+    });
+}
+
 
 /* ---------------- TREAP ---------------- */
 
@@ -136,6 +150,16 @@ class Treap{
         return r;
     }
     delete(v){this.root=this.del(this.root,v);drawTreap();}
+
+    lookup(v){
+    let c=this.root;
+    while(c){
+        highlightByValue(c.v);
+        if(v===c.v) return;
+        c=v<c.v?c.l:c.r;
+    }
+}
+
 }
 
 function drawTreap(){
@@ -208,6 +232,18 @@ class SkipList{
         while(this.level>1 && !this.head.f[this.level-1]) this.level--;
         drawSkip();
     }
+
+    lookup(v){
+        let c=this.head;
+        for(let i=this.level-1;i>=0;i--){
+            while(c.f[i] && c.f[i].v<=v){
+                c=c.f[i];
+                highlightByValue(c.v);
+                if(c.v===v) return;
+            }
+        }
+    }
+
 }
 
 function drawSkip(){
@@ -267,7 +303,12 @@ function remove(){
     if(mode.value==="treap") treap.delete(v);
     else skip.delete(v);
 }
-function lookup(){}
+function lookup(){
+    let v=+val.value;
+    if(mode.value==="treap") treap.lookup(v);
+    else skip.lookup(v);
+}
+
 
 </script>
 </body>

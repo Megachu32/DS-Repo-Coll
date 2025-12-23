@@ -225,7 +225,7 @@
             <div class="button-group">
                 <button id="btn-insert">Insert</button>
                 <button id="btn-lookup">Lookup</button>
-                <button id="btn-delete" class="delete-btn">Delete</button>
+                <button id="btn-delete" class="delete-btn">Extract</button>
             </div>
         </div>
 
@@ -391,31 +391,70 @@
             const i = this.nodes.findIndex(n => n.value === value);
             if (i === -1) return logger.add(`${value} not found`);
 
+            logger.add(`Delete ${value}`);
             await this.vis.highlight(value);
+
+            [this.nodes[i], this.nodes[0]] = [this.nodes[0], this.nodes[i]];
+            this.draw();
+            await sleep(700);
+
+            await this.bubbleUpFrom(i);
+
+            const extracted = this.nodes[0];
             const last = this.nodes.pop();
 
-            if (i < this.nodes.length) {
-                this.nodes[i] = last;
-                this.draw();
-                await this.down(i);
-            } else {
-                this.draw();
+            if (this.nodes.length > 0) {
+                this.nodes[0] = last;
+            }
+
+            logger.add(`Extracted ${extracted.value}`);
+            this.draw();
+
+            await this.heapifyDown(0);
+        }
+
+        async bubbleUpFrom(i) {
+            while (i > 1) {
+                const p = Math.floor((i - 1) / 2);
+
+                await this.vis.highlight(this.nodes[i].value);
+                await this.vis.highlight(this.nodes[p].value);
+
+                if (this.nodes[i].value > this.nodes[p].value) {
+                    [this.nodes[i], this.nodes[p]] =
+                    [this.nodes[p], this.nodes[i]];
+
+                    this.draw();
+                    await sleep(700);
+                    i = p;
+                } else {
+                    break;
+                }
             }
         }
 
-        async down(i) {
-            let largest = i;
-            const l = 2 * i + 1;
-            const r = 2 * i + 2;
+        async heapifyDown(i) {
+            while (true) {
+                const l = 2 * i + 1;
+                const r = 2 * i + 2;
+                let largest = i;
 
-            if (l < this.nodes.length && this.nodes[l].value > this.nodes[largest].value) largest = l;
-            if (r < this.nodes.length && this.nodes[r].value > this.nodes[largest].value) largest = r;
+                if (l < this.nodes.length &&
+                    this.nodes[l].value > this.nodes[largest].value)
+                    largest = l;
 
-            if (largest !== i) {
-                [this.nodes[i], this.nodes[largest]] = [this.nodes[largest], this.nodes[i]];
+                if (r < this.nodes.length &&
+                    this.nodes[r].value > this.nodes[largest].value)
+                    largest = r;
+
+                if (largest === i) break;
+
+                [this.nodes[i], this.nodes[largest]] =
+                [this.nodes[largest], this.nodes[i]];
+
                 this.draw();
                 await sleep(700);
-                await this.down(largest);
+                i = largest;
             }
         }
 
